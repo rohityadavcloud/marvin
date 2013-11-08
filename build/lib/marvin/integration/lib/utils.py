@@ -30,7 +30,6 @@ import urlparse
 import datetime
 from marvin.cloudstackAPI import *
 from marvin.remoteSSHClient import remoteSSHClient
-from marvin.codes import *
 
 
 def restart_mgmt_server(server):
@@ -113,28 +112,19 @@ def cleanup_resources(api_client, resources):
         obj.delete(api_client)
 
 
-def is_server_ssh_ready(ipaddress, port, username, password, retries=20, retryinterv=30, timeout=10.0, keyPairFileLocation=None):
-    '''
-    @Name: is_server_ssh_ready
-    @Input: timeout: tcp connection timeout flag,
-            others information need to be added
-    @Output:object for SshClient    
-    Name of the function is little misnomer and is not
-              verifying anything as such mentioned
-    '''
-
+def is_server_ssh_ready(ipaddress, port, username, password, retries=10, timeout=30, keyPairFileLocation=None):
+    """Return ssh handle else wait till sshd is running"""
     try:
         ssh = remoteSSHClient(
             host=ipaddress,
             port=port,
             user=username,
             passwd=password,
-            keyPairFiles=keyPairFileLocation,
+            keyPairFileLocation=keyPairFileLocation,
             retries=retries,
-            delay=retryinterv,
-            timeout=timeout)
+            delay=timeout)
     except Exception, e:
-        raise Exception("SSH connection has Failed. Waited %ss. Error is %s" % (retries * retryinterv, str(e)))
+        raise Exception("Failed to bring up ssh service in time. Waited %ss. Error is %s" % (retries * timeout, e))
     else:
         return ssh
 
@@ -328,85 +318,3 @@ def is_snapshot_on_nfs(apiclient, dbconn, config, zoneid, snapshotid):
         raise Exception("SSH failed for management server: %s - %s" %
                       (config.mgtSvr[0].mgtSvrIp, e))
     return 'snapshot exists' in result
-
-
-def validateList(inp):
-        '''
-        @name: validateList
-        @Description: 1. A utility function to validate
-                 whether the input passed is a list
-              2. The list is empty or not
-              3. If it is list and not empty, return PASS and first element
-              4. If not reason for FAIL
-        @Input: Input to be validated
-        @output: List, containing [ Result,FirstElement,Reason ]
-                 Ist Argument('Result') : FAIL : If it is not a list
-                                          If it is list but empty
-                                         PASS : If it is list and not empty
-                 IInd Argument('FirstElement'): If it is list and not empty,
-                                           then first element
-                                            in it, default to None
-                 IIIrd Argument( 'Reason' ):  Reason for failure ( FAIL ),
-                                              default to None.
-                                              INVALID_INPUT
-                                              EMPTY_LIST
-        '''
-        ret = [FAIL, None, None]
-        if inp is None:
-            ret[2] = INVALID_INPUT
-            return ret
-        if not isinstance(inp, list):
-            ret[2] = INVALID_INPUT
-            return ret
-        if len(inp) == 0:
-            ret[2] = EMPTY_LIST
-            return ret
-        return [PASS, inp[0], None]
-
-def verifyElementInList(inp, toverify, responsevar=None,  pos=0):
-    '''
-    @name: verifyElementInList
-    @Description:
-    1. A utility function to validate
-    whether the input passed is a list.
-    The list is empty or not.
-    If it is list and not empty, verify
-    whether a given element is there in that list or not
-    at a given pos
-    @Input:
-             I   : Input to be verified whether its a list or not
-             II  : Element to verify whether it exists in the list 
-             III : variable name in response object to verify 
-                   default to None, if None, we will verify for the complete 
-                   first element EX: state of response object object
-             IV  : Position in the list at which the input element to verify
-                   default to 0
-    @output: List, containing [ Result,Reason ]
-             Ist Argument('Result') : FAIL : If it is not a list
-                                      If it is list but empty
-                                      PASS : If it is list and not empty
-                                              and matching element was found
-             IIrd Argument( 'Reason' ): Reason for failure ( FAIL ),
-                                        default to None.
-                                        INVALID_INPUT
-                                        EMPTY_LIST
-                                        MATCH_NOT_FOUND
-    '''
-    if toverify is None or toverify == '' \
-       or pos is None or pos < -1 or pos == '':
-        return [FAIL, INVALID_INPUT]
-    out = validateList(inp)
-    if out[0] == FAIL:
-        return [FAIL, out[2]]
-    if len(inp) > pos:
-        if responsevar is None:
-                if inp[pos] == toverify:
-                    return [PASS, None]
-        else:
-                if responsevar in inp[pos].__dict__ and getattr(inp[pos], responsevar) == toverify:
-                    return [PASS, None]
-                else:
-                    return [FAIL, MATCH_NOT_FOUND]
-    else:
-        return [FAIL, MATCH_NOT_FOUND]
-
